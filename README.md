@@ -58,7 +58,7 @@ A simple and secure authentication service built with Golang using the Gorilla M
 ### Run Tests
 
 ```bash
-go test ./tests/...
+go test ./...
 ```
 
 ## CURL Request For Testing
