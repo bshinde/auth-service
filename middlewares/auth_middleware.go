@@ -12,53 +12,30 @@ var log = logrus.New()
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Log the incoming request details
+		log.Info("Incoming request", "method", r.Method, "url", r.URL.Path)
+
 		// Extract the token from the Authorization header
 		token := r.Header.Get("Authorization")
-		if token == "" {
-			// Log missing token error
-			log.WithFields(logrus.Fields{
-				"method": r.Method,
-				"uri":    r.RequestURI,
-			}).Warn("Missing token in request")
-			http.Error(w, "missing token", http.StatusUnauthorized)
+		if token == "" || !strings.HasPrefix(token, "Bearer ") {
+			log.Error("Missing or invalid token", "method", r.Method, "url", r.URL.Path)
+			http.Error(w, "missing or invalid token", http.StatusUnauthorized)
 			return
 		}
-
-		// Remove "Bearer " prefix if present
-		if strings.HasPrefix(token, "Bearer ") {
-			token = strings.TrimPrefix(token, "Bearer ")
-		} else {
-			// Log invalid token format error
-			log.WithFields(logrus.Fields{
-				"method": r.Method,
-				"uri":    r.RequestURI,
-				"token":  token,
-			}).Warn("Invalid token format")
-			http.Error(w, "invalid token format", http.StatusUnauthorized)
-			return
-		}
+		token = strings.TrimPrefix(token, "Bearer ")
 
 		// Validate the token
 		_, err := utils.ValidateToken(token)
 		if err != nil {
-			// Log invalid token error
-			log.WithFields(logrus.Fields{
-				"method": r.Method,
-				"uri":    r.RequestURI,
-				"token":  token,
-				"error":  err.Error(),
-			}).Error("Invalid token")
-			http.Error(w, "invalid token", http.StatusUnauthorized)
+			log.Error("Invalid or revoked token", "method", r.Method, "url", r.URL.Path, "error", err.Error())
+			http.Error(w, "invalid or revoked token", http.StatusUnauthorized)
 			return
 		}
 
-		// Log successful token validation
-		log.WithFields(logrus.Fields{
-			"method": r.Method,
-			"uri":    r.RequestURI,
-		}).Info("Valid token, request authorized")
+		// Log success after validation
+		log.Info("Token validated successfully", "method", r.Method, "url", r.URL.Path)
 
-		// If the token is valid, pass the request to the next handler
+		// Call the next handler if token is valid
 		next.ServeHTTP(w, r)
 	})
 }

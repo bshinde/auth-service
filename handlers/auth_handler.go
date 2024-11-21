@@ -5,6 +5,8 @@ import (
 	"auth-service/utils"
 	"encoding/json"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -79,4 +81,50 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with the generated token
 	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"token": token})
+}
+
+func RenewToken(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	if token == "" || !strings.HasPrefix(token, "Bearer ") {
+		http.Error(w, "missing or invalid token", http.StatusUnauthorized)
+		return
+	}
+	token = strings.TrimPrefix(token, "Bearer ")
+
+	newToken, err := utils.RenewToken(token)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Error("Failed to renew token")
+		utils.RespondWithError(w, http.StatusUnauthorized, "Failed to renew token")
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"token": newToken})
+}
+
+func RevokeToken(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	if token == "" || !strings.HasPrefix(token, "Bearer ") {
+		http.Error(w, "missing or invalid token", http.StatusUnauthorized)
+		return
+	}
+	token = strings.TrimPrefix(token, "Bearer ")
+
+	claims, err := utils.ValidateToken(token)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Error("Failed to validate token for revocation")
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	// Revoke the token
+	utils.AddTokenToRevokedList(token, time.Unix(claims.ExpiresAt, 0))
+	log.WithFields(logrus.Fields{
+		"email": claims.Email,
+	}).Info("Token revoked successfully")
+
+	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "token revoked"})
 }

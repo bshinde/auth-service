@@ -64,8 +64,42 @@ func ValidateToken(tokenString string) (*Claims, error) {
 		return nil, errors.New("invalid token")
 	}
 
+	// Check if the token is revoked
+	if IsTokenRevoked(tokenString) {
+		log.WithFields(logrus.Fields{
+			"token": tokenString,
+		}).Warn("Token is revoked")
+		return nil, errors.New("token has been revoked")
+	}
+
 	log.WithFields(logrus.Fields{
 		"email": claims.Email,
 	}).Info("Token validated successfully")
 	return claims, nil
+}
+
+// RenewToken generates a new token using the claims of an existing token
+func RenewToken(oldToken string) (string, error) {
+	claims, err := ValidateToken(oldToken)
+	if err != nil {
+		// Log the error with details
+		log.Error("Error validating token", "error", err)
+		return "", err
+	}
+
+	// Log the successful token validation with email
+	log.Info("Token validated successfully", "email", claims.Email)
+
+	// Generate a new token with the same email
+	newToken, err := GenerateToken(claims.Email)
+	if err != nil {
+		// Log the error during token generation
+		log.Error("Error generating new token", "error", err)
+		return "", err
+	}
+
+	// Log successful generation of the new token
+	log.Info("New token generated successfully", "email", claims.Email)
+
+	return newToken, nil
 }
