@@ -21,7 +21,7 @@ A simple and secure authentication service built with Golang using the Gorilla M
 
 ### Prerequisites
 
-- Golang (version 1.19+)
+- Golang (version 1.22.2)
 - Docker and Docker Compose
 - A tool for API testing, e.g., curl or Postman.
 
